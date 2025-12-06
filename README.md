@@ -1,217 +1,225 @@
-# Master Prompt نمونه برای Monitoring Stack (Prometheus + Grafana)
+# آموزش طراحی Master Prompt برای Monitoring Stack (Prometheus + Grafana)
 
-این فایل یک **نمونه‌ی کامل Master Prompt** برای طراحی و استقرار یک **Monitoring Stack تولیدی** (Production‑grade) با Prometheus + Grafana است.
+این فایل برای این است که **جونیورها** (و حتی سینیورها) یاد بگیرند چطور فقط با **یک پرامپت واحد**، یک خروجی کامل و production‑grade برای مانیتورینگ (Prometheus + Grafana) بگیرند.
 
-هدف این است که:
+در انتهای این آموزش، یک **Master Prompt نهایی** داری که:
 
-* برای هر پروژه‌ی جدید، فقط این Master Prompt را به مدل بدهی؛
-* بعد، یک **سناریو (Scenario)** کوچک تعریف کنی؛
-* و در خروجی، یک Monitoring Stack آماده‌ی دیپلوی، با داکر/کامپوز، کانفیگ Prometheus، Grafana، Alerting، Runbook و… تحویل بگیری.
+* فقط یک بلوک متن است (یک پیام)؛
+* می‌توانی مستقیم در ChatGPT یا هر LLM دیگری Paste کنی؛
+* برایت معماری، docker-compose، `prometheus.yml`، `alertmanager.yml`، Grafana provisioning، `.env.example` و Runbook تولید می‌کند.
 
-سناریوی شبکه‌ی این مثال:
+سناریوی نمونه ما:
 
-* Subnet: `10.10.10.0/24`
-* Docker network: `monitoring_net` با subnet بالا
-* سرویس‌ها: Prometheus، Alertmanager، Grafana، Node Exporter، cAdvisor (اختیاری)
-
----
-
-## ۱. ساختار کلی یک Master Prompt خوب (برای آموزش)
-
-برای طراحی یک Master Prompt تمیز و قابل استفاده‌ی مجدد، معمولاً این بخش‌ها را تعریف می‌کنیم:
-
-1. **ROLE**
-   مدل را در یک نقش مشخص قفل می‌کنیم؛ مثلاً:
-
-   * Senior DevOps Engineer
-   * SRE / Observability Engineer
-
-2. **CONTEXT**
-   محیط و محدودیت‌ها را شفاف می‌نویسیم:
-
-   * On‑prem / Air‑gapped
-   * Docker / Kubernetes
-   * IP range، subnet، VLAN
-   * Security (PCI/GDPR، بدون اینترنت، فقط Nexus و…)
-
-3. **SCOPE**
-   دقیقاً می‌گوییم مدل چه چیزهایی را **حتماً** باید پوشش بدهد؛ برای Monitoring Stack مثلاً:
-
-   * معماری + دیاگرام (Mermaid)
-   * docker-compose.yml
-   * فایل‌های `prometheus.yml` و rules
-   * Alertmanager config
-   * Grafana provisioning (datasource + dashboard نمونه)
-   * Volumeها و مسیرهای `/data`
-   * Runbook های اصلی (start/stop، تست، incident)
-
-4. **RULES**
-   قوانین فرمت، زبان، تمیزی کد و…
-
-   * هر فایل در یک code block جدا، با اسم فایل روی خط اول
-   * بدون کامنت فارسی داخل کد
-   * YAML / Dockerfile معتبر
-   * صریح گفتن Assumptions
-
-5. **OUTPUT FORMAT**
-   ترتیب و ساختار نهایی خروجی؛ مثلاً از ۰ تا ۱۰ شماره‌گذاری.
-
-در ادامه، یک Master Prompt آماده برای همین سناریوی Monitoring Stack می‌بینی.
+* Network: `10.10.10.0/24`
+* Docker network name: `monitoring_net`
+* سرویس‌ها: Prometheus، Alertmanager، Grafana، Node Exporter، cAdvisor
 
 ---
 
-## ۲. سناریوی نمونه برای Monitoring Stack
+## ۱. ایده‌ی اصلی Master Prompt (فهم برای جونیورها)
 
-این سناریو را معمولاً در **پیام دوم** بعد از Master Prompt به مدل می‌دهی.
-(خود Master Prompt در بخش بعدی است.)
+برای این‌که خروجی مدل «هر دفعه» تمیز و قابل استفاده باشد، ما یک **Master Prompt** می‌سازیم که ۵ جزء اصلی دارد، اما در عمل آن‌ها را به‌صورت **یک متن واحد** می‌نویسیم:
 
-```text
-Scenario:
-- Environment: Production monitoring for on-prem services
-- Hosts: 1 Docker host (Rocky Linux 9.x) dedicated for monitoring
-- Network: Docker bridge `monitoring_net` using subnet 10.10.10.0/24
-- Stack: Prometheus, Alertmanager, Grafana, Node Exporter, cAdvisor
-- Storage: /data/monitoring on LVM volume (persistent)
-- Constraints: No public internet, all images pulled from internal registry (e.g., Nexus)
-- NFRs: 99.9% availability for monitoring stack, alert latency < 30 seconds
+1. **ROLE** – مدل در چه نقشی باشد؟ (مثلاً Senior DevOps + SRE)
+2. **CONTEXT** – محیط ما چیست؟ (On‑prem, Docker, IP range, Registry داخلی و…)
+3. **SCOPE** – دقیقاً چه چیزهایی را باید تولید کند؟ (docker-compose، configs، Runbook و…)
+4. **RULES** – قوانین تمیزی کد، فرمت خروجی، نام‌گذاری‌ها و…
+5. **OUTPUT FORMAT** – ترتیب و شماره‌ی بخش‌های خروجی (۰ تا ۱۰)
 
-Deliverables:
-- Full monitoring stack (architecture, docker-compose, configs, runbooks) ready for production.
-```
+نکته‌ی مهم برای آموزش:
+
+* ما این ۵ بخش را **در ذهن** جدا می‌بینیم، ولی در عمل برای مدل، **همه را در یک بلوک متن** می‌نویسیم.
+* جونیور فقط لازم است بداند:
+
+  * ROLE یعنی «نقش» مدل؛
+  * CONTEXT یعنی «کجا هستیم و چه محدودیت‌هایی داریم»؛
+  * SCOPE یعنی «چی می‌خواهیم»؛
+  * RULES یعنی «چطور بنویسد»؛
+  * OUTPUT FORMAT یعنی «خروجی را با چه ساختاری بدهد».
 
 ---
 
-## ۳. Master Prompt آماده برای Monitoring Stack (کپی/پیست)
+## ۲. سه قانون طلایی برای Master Prompt خوب
 
-این متن را به‌عنوان **پیام اول** در چت جدید به مدل بده.
-(بعد از آن، سناریوی بالا یا سناریوی مشابه خودت را ارسال کن.)
+این سه قانون را همیشه روی تخته/اسلاید برای جونیورها بگذار:
+
+1. **یک نقش مشخص (ROLE) تعریف کن**
+   نگویید «کمک کن مانیتورینگ راه بیندازم»، بگو:
+   «You are a Senior DevOps Engineer and Observability/SRE Engineer…»
+
+2. **خروجی را شماره‌گذاری کن (OUTPUT FORMAT)**
+   مثلاً بگو:
+   `0) Assumptions`, `1) Architecture Overview`, `2) Directory Layout`, …
+   این کار باعث می‌شود هر بار خروجی ساختار ثابت داشته باشد.
+
+3. **قوانین فرمت را صریح بنویس (RULES)**
+   مثل:
+
+   * هر فایل در یک code block جدا
+   * روی خط اول نام فایل را بنویس (`# docker-compose.yml`)
+   * YAML و Dockerfile معتبر باشند
+   * کامنت فارسی داخل کد ممنوع
+
+اگر این سه را رعایت کنی، بقیه‌ی داستان فقط «جزئیات دامنه» است.
+
+---
+
+## ۳. Master Prompt نهایی (یک بلوک، آماده‌ی استفاده)
+
+این همان چیزی است که در نهایت جونیور باید کپی کند و به مدل بدهد.
+**فقط کافی است مقادیر داخل <> را برای پروژه‌ی خودش عوض کند** (یا همین‌طور پیش‌فرض رها کند).
+
+> مرحله استفاده:
+>
+> 1. یک چت جدید باز کن.
+> 2. کل متن زیر را (با شخصی‌سازی مقادیر داخل < > در صورت نیاز) Paste کن.
+> 3. Enter بزن.
+> 4. اگر لازم بود، در پیام بعدی فقط جزئیات بیشتری از سناریو بده.
 
 ```text
 ROLE
 You are a Senior DevOps Engineer and Observability/SRE Engineer.
-You MUST design and document a complete, production-grade monitoring stack based on Prometheus and Grafana.
+Your job is to design and document a complete, production-grade monitoring stack based on Prometheus and Grafana.
 
 CONTEXT
-- Environment: On-prem, possibly air-gapped, enterprise / banking grade
-- OS: Rocky Linux 9.x (or similar RHEL-compatible) on a dedicated monitoring host
-- Container runtime: Docker (or compatible) with docker-compose
-- Network: Custom Docker bridge network `monitoring_net` using subnet 10.10.10.0/24
-- Registry: Internal registry (e.g., Nexus) used for all images (no direct pulls from public internet)
-- Purpose: Centralized metrics and dashboards for servers, containers, and applications
+- Environment: On-prem (or air-gapped friendly) enterprise/banking environment.
+- OS: Rocky Linux 9.x (or any RHEL-compatible Linux) on a dedicated monitoring host.
+- Container runtime: Docker with docker-compose.
+- Network: A custom Docker bridge network named "monitoring_net".
+- Default subnet: 10.10.10.0/24 (can be overridden if the user provides another subnet).
+- Registry: All images should be pulled from an internal registry (e.g., <REGISTRY_URL>) and NOT directly from the public internet.
+- Stack components:
+  - Prometheus (metrics storage and scraping)
+  - Alertmanager (alert routing)
+  - Grafana (dashboards)
+  - Node Exporter (host metrics)
+  - cAdvisor (container metrics, optional but recommended)
 
 SCOPE (ALWAYS COVER)
+You MUST always cover at least the following items for the monitoring stack:
+
 1) Architecture
-   - High-level description of the monitoring stack
-   - Mermaid component diagram showing:
+   - High-level architecture description in text.
+   - A Mermaid component diagram showing:
      - monitored nodes (node_exporter)
-     - cAdvisor (optional) for container metrics
-     - Prometheus server
+     - cAdvisor
+     - Prometheus
      - Alertmanager
      - Grafana
-     - data flows and network boundaries (monitoring_net)
+     - Docker network "monitoring_net" and how components communicate.
 
 2) Directory & Volume Layout
-   - Recommended directory tree rooted at `/data/monitoring` for:
-     - prometheus data & config
-     - alertmanager config
-     - grafana data & provisioning
-   - Explicit folder names and mount points used in docker-compose.
+   - A clear directory tree rooted at /data/monitoring (or <MONITORING_DATA_DIR> if user overrides), including:
+     - prometheus/config
+     - prometheus/data
+     - alertmanager/config
+     - grafana/data
+     - grafana/provisioning/datasources
+     - grafana/provisioning/dashboards
+   - Explain which directories are mounted as volumes in docker-compose.
 
-3) Containerization & docker-compose
-   - A complete `docker-compose.yml` file that defines:
-     - docker network `monitoring_net` with subnet 10.10.10.0/24
-     - services: prometheus, alertmanager, grafana, node_exporter, cadvisor
-   - All services must use bind mounts under `/data/monitoring/...` for persistence.
-   - Expose only the necessary ports (e.g., Grafana HTTP, Prometheus HTTP) and keep others internal.
+3) docker-compose Stack
+   - A complete, syntactically valid docker-compose.yml file that:
+     - defines the "monitoring_net" network with subnet 10.10.10.0/24 (or user provided subnet);
+     - defines the services: prometheus, alertmanager, grafana, node_exporter, cadvisor;
+     - uses bind mounts under /data/monitoring for persistent data and configs;
+     - exposes only necessary ports externally (e.g., Grafana and Prometheus HTTP), keeping everything else internal.
 
 4) Prometheus Configuration
-   - A complete `prometheus.yml` configuration file including:
-     - global scrape settings
+   - A complete prometheus.yml file with:
+     - global scrape and evaluation intervals;
      - scrape jobs for:
-       - prometheus itself
+       - Prometheus itself
        - node_exporter
        - cadvisor
      - alerting configuration pointing to Alertmanager.
-   - At least one example rule file (e.g., `alerts/general-rules.yml`) with basic alerts (node down, high CPU, high memory, disk usage).
+   - At least one alert rules file (e.g., alerts/general-rules.yml) with basic alerts:
+     - instance down
+     - high CPU usage
+     - high memory usage
+     - high disk usage.
 
 5) Alertmanager Configuration
-   - A minimal but production-ready `alertmanager.yml` including:
-     - route & receiver definitions
-     - example receiver using email or webhook (placeholders ok)
-     - grouping and repeat intervals.
+   - A valid alertmanager.yml configuration file that includes:
+     - at least one route;
+     - at least one receiver with placeholders (e.g., email, webhook, chat ops);
+     - reasonable grouping and repeat interval settings.
 
-6) Grafana Configuration & Provisioning
-   - docker-compose configuration for persistent Grafana data.
-   - Provisioning files for:
-     - Prometheus datasource (e.g., `provisioning/datasources/prometheus.yml`)
-     - At least one example dashboard JSON file for basic host metrics.
-   - Use admin credentials from environment variables or `.env` (do NOT hardcode secrets).
+6) Grafana Provisioning
+   - docker-compose configuration for Grafana with persistent storage.
+   - Provisioning files:
+     - a Prometheus datasource definition (e.g., provisioning/datasources/prometheus.yml);
+     - at least one example dashboard JSON for host/container metrics.
+   - Grafana admin credentials must come from environment variables or .env (no hardcoded secrets).
 
-7) Environment & Config Files
-   - A `.env.example` file for:
-     - Grafana admin user & password
-     - SMTP or webhook endpoints for Alertmanager (placeholders)
-     - internal registry credentials if needed.
-   - Clear explanation in plain text (outside code) about how to use `.env` with docker-compose.
+7) Environment & Secrets
+   - A .env.example file that includes placeholders for:
+     - Grafana admin user and password;
+     - SMTP or webhook endpoints for Alertmanager (if applicable);
+     - internal registry credentials (if needed).
+   - A short explanation (outside code) of how to use the .env file with docker-compose.
 
 8) Security & Hardening
    - Recommendations for:
-     - limiting access to Grafana and Prometheus via firewall / reverse proxy
-     - using strong passwords and disabling anonymous Grafana access
-     - restricting who can modify dashboards and alert rules.
-   - Optional note on integrating with SSO (Keycloak/LDAP) at a conceptual level.
+     - restricting access to Prometheus and Grafana (firewall, reverse proxy, VPN);
+     - disabling anonymous access to Grafana and restricting dashboard editing;
+     - using strong credentials and not exposing ports unnecessarily.
+   - Optional (but recommended) high-level note on integrating with SSO (e.g., Keycloak/LDAP).
 
 9) Runbooks & Operational Procedures
-   - Runbook for:
-     - starting/stopping/restarting the monitoring stack with docker-compose
-     - checking health (HTTP endpoints, basic queries)
-     - verifying alerts (simulate a test alert)
-   - Incident runbook for:
-     - Prometheus down
-     - Grafana not reachable
-     - disk full on `/data/monitoring`.
+   - A concise operational runbook that describes:
+     - how to start, stop, and restart the monitoring stack using docker-compose;
+     - how to check health (HTTP endpoints, basic PromQL queries, Grafana status);
+     - how to validate that alerts work (e.g., firing a test alert).
+   - An incident runbook for common issues:
+     - Prometheus down or not scraping targets;
+     - Grafana not reachable;
+     - disk full on /data/monitoring.
 
 10) Next Steps / Improvements
-   - Suggestions for:
-     - adding more exporters (database, application, blackbox)
-     - integrating Loki / logging later
-     - enabling HA for Prometheus/Grafana if required.
+   - Clear suggestions for next steps, such as:
+     - adding more exporters (database, application, blackbox);
+     - integrating logging stack (e.g., Loki) later;
+     - adding HA for Prometheus/Grafana if the environment requires higher availability.
 
 RULES
-- Put every file/content in its own clean code block with a proper filename comment on the first line (e.g., `# docker-compose.yml`, `# prometheus/prometheus.yml`).
-- All YAML, Dockerfiles, docker-compose, and shell snippets must be syntactically valid.
-- Do NOT include non-English comments inside code/config. Explanations can be in English outside the code blocks.
-- Explicitly state all assumptions in a section called `0) Assumptions` at the beginning of the answer.
-- The monitoring network MUST be `monitoring_net` with subnet `10.10.10.0/24` unless the scenario explicitly overrides it.
-- Use clear and semantic names for directories and services (e.g., `prometheus`, `alertmanager`, `grafana`, `node_exporter`, `cadvisor`).
+- Put every file/content in its own clean code block with a proper filename comment on the first line (e.g., "# docker-compose.yml", "# prometheus/prometheus.yml").
+- All YAML, Dockerfiles, docker-compose, and shell snippets MUST be syntactically valid.
+- Do NOT include non-English comments inside any code or config file. Explanations and notes must be outside code blocks in English.
+- Use the Docker network name "monitoring_net" and subnet 10.10.10.0/24 by default, unless the user explicitly provides a different network.
+- Use clear, semantic names for services and directories (prometheus, alertmanager, grafana, node_exporter, cadvisor).
+- If information is missing from the user, choose best-practice defaults and explicitly list them under "0) Assumptions" in the answer.
 
 OUTPUT FORMAT (STRICT ORDER)
+Always structure your answer in the following numbered sections:
+
 0) Assumptions
 1) Architecture Overview (text + Mermaid diagram)
-2) Directory & Volume Layout (directory tree + short explanation)
-3) docker-compose Stack (`docker-compose.yml` + any `.env` usage)
-4) Prometheus Config (`prometheus.yml` + alert rule file)
-5) Alertmanager Config (`alertmanager.yml`)
+2) Directory & Volume Layout (directory tree + explanation)
+3) docker-compose Stack (docker-compose.yml and any related notes)
+4) Prometheus Config (prometheus.yml + alert rule file)
+5) Alertmanager Config (alertmanager.yml)
 6) Grafana Provisioning (datasource + example dashboard JSON)
-7) Environment & Secrets (`.env.example` and explanation)
+7) Environment & Secrets (.env.example + explanation)
 8) Security & Hardening Recommendations
 9) Runbooks (operations + incident handling)
 10) Next Steps / Improvements
 
 TONE
-- Concise, precise, and operational.
-- Answers must be production-grade and copy-paste friendly for a real on-prem environment.
+- Be concise, precise, and operational.
+- All outputs must be production-grade and copy-paste friendly for a real on-prem environment.
 ```
 
 ---
 
-## ۴. چطور از این فایل در آموزش استفاده کنی؟
+## ۴. چطور این را برای دامنه‌های دیگر هم استفاده کنند؟
 
-برای آموزش تیم یا مستندسازی داخلی می‌توانی:
+برای آموزش جونیورها، می‌توانی بگویی:
 
-1. این فایل را به‌عنوان `README.md` در یک ریپوی مثل `monitoring-stack-master-prompt` قرار بدهی.
-2. در جلسه‌ی آموزشی، ساختار Master Prompt را (ROLE, CONTEXT, SCOPE, RULES, OUTPUT FORMAT) توضیح بده.
-3. بعد، همین Master Prompt را در یک LLM اجرا کن و خروجی (docker-compose، prometheus.yml، …) را به تیم نشان بده.
-4. در نهایت، خروجی را کمی customize کن و تبدیلش کن به یک پروژه‌ی واقعی `monitoring-stack/` روی سرور تست.
+* اگر به‌جای Monitoring، مثلاً **Nexus**، **GitLab** یا **Application Stack** می‌خواهید، فقط کافی است:
 
-به این شکل، هم تیم مفهوم **طراحی Master Prompt** را یاد می‌گیرد، هم یک Monitoring Stack عملی برای استفاده‌ی بعدی خواهید داشت.
+  * بخش **CONTEXT** و **SCOPE** را با دامنه‌ی جدید عوض کنید؛
+  * لیست خروجی‌ها (OUTPUT FORMAT) را متناسب با آن سرویس تنظیم کنید.
+* اما همان ۵ جزء اصلی (ROLE، CONTEXT، SCOPE، RULES، OUTPUT FORMAT) را همیشه حفظ کنید.
+
+به این شکل، با فقط **یک Master Prompt**، خروجی‌های خیلی تمیز و ثابت می‌گیرید و جونیورها هم دقیقاً می‌فهمند «چه چیزی را باید به مدل بگویند» تا خروجی استفاده‌پذیر تحویل بگیرند.

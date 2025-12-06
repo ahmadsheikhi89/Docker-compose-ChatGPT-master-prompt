@@ -1,14 +1,14 @@
-# آموزش طراحی Master Prompt برای Monitoring Stack (Prometheus + Grafana)
+# طراحی Master Prompt برای Monitoring Stack (Prometheus + Grafana)
 
-این فایل برای این است که **جونیورها** (و حتی سینیورها) یاد بگیرند چطور فقط با **یک پرامپت واحد**، یک خروجی کامل و production‑grade برای مانیتورینگ (Prometheus + Grafana) بگیرند.
+این سند یک نمونه‌ی کامل برای طراحی و استفاده از **Master Prompt** در حوزه‌ی مانیتورینگ (Prometheus + Grafana) است. هدف این است که هر فردی با تجربه‌ی معقول در DevOps بتواند:
 
-در انتهای این آموزش، یک **Master Prompt نهایی** داری که:
+* مفهوم Master Prompt را درک کند،
+* ساختار آن را تکرارپذیر در پروژه‌های دیگر پیاده‌سازی کند،
+* و با **یک پرامپت واحد**، خروجی production‑grade برای Monitoring Stack دریافت کند.
 
-* فقط یک بلوک متن است (یک پیام)؛
-* می‌توانی مستقیم در ChatGPT یا هر LLM دیگری Paste کنی؛
-* برایت معماری، docker-compose، `prometheus.yml`، `alertmanager.yml`، Grafana provisioning، `.env.example` و Runbook تولید می‌کند.
+در انتهای این سند، یک **Master Prompt نهایی** در اختیار دارید که می‌توان آن را مستقیماً در ChatGPT یا هر LLM مشابهی استفاده کرد.
 
-سناریوی نمونه ما:
+سناریوی مرجع این سند:
 
 * Network: `10.10.10.0/24`
 * Docker network name: `monitoring_net`
@@ -16,65 +16,96 @@
 
 ---
 
-## ۱. ایده‌ی اصلی Master Prompt (فهم برای جونیورها)
+## ۱. هدف Master Prompt در این سناریو
 
-برای این‌که خروجی مدل «هر دفعه» تمیز و قابل استفاده باشد، ما یک **Master Prompt** می‌سازیم که ۵ جزء اصلی دارد، اما در عمل آن‌ها را به‌صورت **یک متن واحد** می‌نویسیم:
+در این سند، Master Prompt طوری طراحی شده که هر بار اجرا شود، خروجی زیر را به‌صورت منسجم و تکرارپذیر تولید کند:
 
-1. **ROLE** – مدل در چه نقشی باشد؟ (مثلاً Senior DevOps + SRE)
-2. **CONTEXT** – محیط ما چیست؟ (On‑prem, Docker, IP range, Registry داخلی و…)
-3. **SCOPE** – دقیقاً چه چیزهایی را باید تولید کند؟ (docker-compose، configs، Runbook و…)
-4. **RULES** – قوانین تمیزی کد، فرمت خروجی، نام‌گذاری‌ها و…
-5. **OUTPUT FORMAT** – ترتیب و شماره‌ی بخش‌های خروجی (۰ تا ۱۰)
+* معماری سطح بالا و دیاگرام (Mermaid)،
+* ساختار دایرکتوری و Volumeها،
+* فایل `docker-compose.yml` کامل،
+* پیکربندی Prometheus (`prometheus.yml` + rules)،
+* پیکربندی Alertmanager (`alertmanager.yml`)،
+* Provisioning اولیه Grafana (datasource + dashboard نمونه)،
+* `.env.example` برای متغیرهای حساس،
+* توصیه‌های امنیتی و Runbookهای عملیاتی.
 
-نکته‌ی مهم برای آموزش:
-
-* ما این ۵ بخش را **در ذهن** جدا می‌بینیم، ولی در عمل برای مدل، **همه را در یک بلوک متن** می‌نویسیم.
-* جونیور فقط لازم است بداند:
-
-  * ROLE یعنی «نقش» مدل؛
-  * CONTEXT یعنی «کجا هستیم و چه محدودیت‌هایی داریم»؛
-  * SCOPE یعنی «چی می‌خواهیم»؛
-  * RULES یعنی «چطور بنویسد»؛
-  * OUTPUT FORMAT یعنی «خروجی را با چه ساختاری بدهد».
+این رویکرد کمک می‌کند Monitoring Stack همیشه با یک استاندارد تکرارپذیر طراحی و پیاده‌سازی شود.
 
 ---
 
-## ۲. سه قانون طلایی برای Master Prompt خوب
+## ۲. ساختار مفهومی یک Master Prompt
 
-این سه قانون را همیشه روی تخته/اسلاید برای جونیورها بگذار:
+برای طراحی یک Master Prompt قابل استفاده‌ی مجدد، می‌توان آن را به پنج جزء منطقی تقسیم کرد. در متن نهایی، همه‌ی این اجزاء در قالب یک پرامپت واحد نوشته می‌شوند، اما بهتر است هنگام طراحی به‌صورت جداگانه به آن‌ها فکر کنیم:
 
-1. **یک نقش مشخص (ROLE) تعریف کن**
-   نگویید «کمک کن مانیتورینگ راه بیندازم»، بگو:
-   «You are a Senior DevOps Engineer and Observability/SRE Engineer…»
+1. **ROLE**
+   تعیین می‌کند مدل در چه نقشی پاسخ بدهد؛ مثلاً:
 
-2. **خروجی را شماره‌گذاری کن (OUTPUT FORMAT)**
-   مثلاً بگو:
-   `0) Assumptions`, `1) Architecture Overview`, `2) Directory Layout`, …
-   این کار باعث می‌شود هر بار خروجی ساختار ثابت داشته باشد.
+   * Senior DevOps Engineer
+   * Observability / SRE Engineer
 
-3. **قوانین فرمت را صریح بنویس (RULES)**
-   مثل:
+2. **CONTEXT**
+   محیط، محدودیت‌ها و شرایط کلی را مشخص می‌کند؛ مانند:
 
-   * هر فایل در یک code block جدا
-   * روی خط اول نام فایل را بنویس (`# docker-compose.yml`)
-   * YAML و Dockerfile معتبر باشند
-   * کامنت فارسی داخل کد ممنوع
+   * On‑prem یا Cloud
+   * نوع سیستم‌عامل و Container runtime
+   * Subnet، نام Docker network، نوع Registry
+   * سطح حساسیت (بانکی، PCI، air‑gapped و ...)
 
-اگر این سه را رعایت کنی، بقیه‌ی داستان فقط «جزئیات دامنه» است.
+3. **SCOPE**
+   دقیقاً مشخص می‌کند چه خروجی‌هایی انتظار داریم؛ برای مثال:
+
+   * docker-compose
+   * فایل‌های کانفیگ Prometheus و Alertmanager
+   * Provisioning Grafana
+   * Runbook و توصیه‌های امنیتی
+
+4. **RULES**
+   استانداردهای نگارشی و فنی که پاسخ باید رعایت کند؛ مانند:
+
+   * هر فایل در یک code block مجزا
+   * نام فایل در خط اول code block
+   * عدم استفاده از توضیحات غیرانگلیسی داخل کد
+   * اعتبار سینتکس YAML، Dockerfile و ...
+
+5. **OUTPUT FORMAT**
+   قالب نهایی پاسخ و ترتیب بخش‌ها را مشخص می‌کند؛ مثلاً:
+
+   * 0) Assumptions
+   * 1. Architecture Overview
+   * 2. Directory & Volume Layout
+   * ... تا 10) Next Steps / Improvements
+
+در عمل، تمام این اجزاء را در یک متن واحد به مدل می‌دهیم؛ اما تفکیک مفهومی آن‌ها باعث می‌شود طراحی Master Prompt برای تیم ساده و شفاف باشد.
 
 ---
 
-## ۳. Master Prompt نهایی (یک بلوک، آماده‌ی استفاده)
+## ۳. اصول طراحی Master Prompt در این سند
 
-این همان چیزی است که در نهایت جونیور باید کپی کند و به مدل بدهد.
-**فقط کافی است مقادیر داخل <> را برای پروژه‌ی خودش عوض کند** (یا همین‌طور پیش‌فرض رها کند).
+برای استانداردسازی، این سند سه اصل ساده را رعایت می‌کند:
 
-> مرحله استفاده:
->
-> 1. یک چت جدید باز کن.
-> 2. کل متن زیر را (با شخصی‌سازی مقادیر داخل < > در صورت نیاز) Paste کن.
-> 3. Enter بزن.
-> 4. اگر لازم بود، در پیام بعدی فقط جزئیات بیشتری از سناریو بده.
+1. **نقش شفاف (ROLE مشخص)**
+   مدل دقیقاً می‌داند در چه جایگاهی پاسخ می‌دهد (Senior DevOps + SRE در حوزه‌ی Observability).
+
+2. **خروجی ساختارمند و شماره‌گذاری‌شده (OUTPUT FORMAT)**
+   پاسخ همیشه با شماره‌گذاری از ۰ تا ۱۰ ارائه می‌شود؛ این کار خوانایی و قابلیّت ارجاع را بالا می‌برد.
+
+3. **قوانین فرمت و تمیزی کد (RULES)**
+   تمام فایل‌ها در code blockهای مجزا، با نام فایل روی خط اول، و سینتکس معتبر ارائه می‌شوند.
+
+این سه اصل را می‌توان در هر دامنه‌ی دیگری (Nexus، GitLab، Microservices و …) نیز تکرار کرد.
+
+---
+
+## ۴. Master Prompt نهایی (متن واحد و قابل کپی)
+
+این بخش، Master Prompt نهایی است که می‌توانید مستقیماً در یک گفت‌وگوی جدید با مدل استفاده کنید.
+
+**نحوه‌ی استفاده:**
+
+1. یک چت جدید در LLM باز کنید.
+2. کل متن زیر را بدون تغییر یا با حداقل شخصی‌سازی (مثلاً جایگزینی `<REGISTRY_URL>` و مسیر داده‌ها) Paste کنید.
+3. پیام را ارسال کنید.
+4. در صورت نیاز، در پیام بعدی فقط جزئیات تکمیلی سناریوی خود را اضافه کنید.
 
 ```text
 ROLE
@@ -109,7 +140,7 @@ You MUST always cover at least the following items for the monitoring stack:
      - Docker network "monitoring_net" and how components communicate.
 
 2) Directory & Volume Layout
-   - A clear directory tree rooted at /data/monitoring (or <MONITORING_DATA_DIR> if user overrides), including:
+   - A clear directory tree rooted at /data/monitoring (or <MONITORING_DATA_DIR> if the user overrides), including:
      - prometheus/config
      - prometheus/data
      - alertmanager/config
@@ -120,7 +151,7 @@ You MUST always cover at least the following items for the monitoring stack:
 
 3) docker-compose Stack
    - A complete, syntactically valid docker-compose.yml file that:
-     - defines the "monitoring_net" network with subnet 10.10.10.0/24 (or user provided subnet);
+     - defines the "monitoring_net" network with subnet 10.10.10.0/24 (or a user-provided subnet);
      - defines the services: prometheus, alertmanager, grafana, node_exporter, cadvisor;
      - uses bind mounts under /data/monitoring for persistent data and configs;
      - exposes only necessary ports externally (e.g., Grafana and Prometheus HTTP), keeping everything else internal.
@@ -164,7 +195,7 @@ You MUST always cover at least the following items for the monitoring stack:
      - restricting access to Prometheus and Grafana (firewall, reverse proxy, VPN);
      - disabling anonymous access to Grafana and restricting dashboard editing;
      - using strong credentials and not exposing ports unnecessarily.
-   - Optional (but recommended) high-level note on integrating with SSO (e.g., Keycloak/LDAP).
+   - Optional high-level note on integrating with SSO (e.g., Keycloak/LDAP).
 
 9) Runbooks & Operational Procedures
    - A concise operational runbook that describes:
@@ -179,7 +210,7 @@ You MUST always cover at least the following items for the monitoring stack:
 10) Next Steps / Improvements
    - Clear suggestions for next steps, such as:
      - adding more exporters (database, application, blackbox);
-     - integrating logging stack (e.g., Loki) later;
+     - integrating a logging stack (e.g., Loki) later;
      - adding HA for Prometheus/Grafana if the environment requires higher availability.
 
 RULES
@@ -212,14 +243,13 @@ TONE
 
 ---
 
-## ۴. چطور این را برای دامنه‌های دیگر هم استفاده کنند؟
+## ۵. نحوه‌ی استفاده‌ی عملی در ریپو یا مستندات
 
-برای آموزش جونیورها، می‌توانی بگویی:
+برای استفاده‌ی عملی از این سند در GitHub/GitLab یا ویکی داخلی:
 
-* اگر به‌جای Monitoring، مثلاً **Nexus**، **GitLab** یا **Application Stack** می‌خواهید، فقط کافی است:
+1. این متن را به‌عنوان `README.md` در یک ریپوی آموزشی (مثلاً `monitoring-stack-master-prompt`) قرار دهید.
+2. هنگام نیاز به طراحی Monitoring Stack جدید، ابتدا این Master Prompt را در یک گفت‌وگوی جدید با مدل استفاده کنید.
+3. خروجی حاصل (docker-compose، فایل‌های کانفیگ، Runbookها و …) را در یک ریپوی جدید (مثلاً `monitoring-stack-prod` یا مشابه) ذخیره و متناسب با محیط واقعی تنظیم کنید.
+4. الگوی مفهومی این Master Prompt (ROLE، CONTEXT، SCOPE، RULES، OUTPUT FORMAT) را می‌توان برای سایر دامنه‌ها نیز بازاستفاده کرد؛ فقط کافی است محتوا و اقلام خروجی متناسب با سرویس جدید (Nexus، GitLab، Microservices و …) به‌روزرسانی شود.
 
-  * بخش **CONTEXT** و **SCOPE** را با دامنه‌ی جدید عوض کنید؛
-  * لیست خروجی‌ها (OUTPUT FORMAT) را متناسب با آن سرویس تنظیم کنید.
-* اما همان ۵ جزء اصلی (ROLE، CONTEXT، SCOPE، RULES، OUTPUT FORMAT) را همیشه حفظ کنید.
-
-به این شکل، با فقط **یک Master Prompt**، خروجی‌های خیلی تمیز و ثابت می‌گیرید و جونیورها هم دقیقاً می‌فهمند «چه چیزی را باید به مدل بگویند» تا خروجی استفاده‌پذیر تحویل بگیرند.
+به این شکل، طراحی و استقرار Monitoring Stack نه‌تنها استاندارد و تکرارپذیر می‌شود، بلکه می‌تواند به‌عنوان الگوی مرجع برای سایر سرویس‌های زیرساختی نیز مورد استفاده قرار گیرد.

@@ -1,3 +1,4 @@
+![Docker Compose Master Prompt for LLM](./banner.png)
 # 🎛️ طراحی Master Prompt برای Monitoring Stack (Prometheus + Grafana)
 
 این سند یک نمونه‌ی کامل برای طراحی و استفاده از **Master Prompt** در حوزه‌ی مانیتورینگ (Prometheus + Prometheus + Grafana) است. هدف این است که هر فردی با تجربه‌ی معقول در DevOps بتواند:
